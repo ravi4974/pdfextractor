@@ -31,7 +31,8 @@ def get_images_from_pdf(path, mat=fitz.Matrix(2,2)):
             yield image
 
 def get_text_from_image(image):
-    return pytesseract.image_to_string(image)
+    text=pytesseract.image_to_string(image)
+    return '\n'.join(line.strip() for line in text.split('\n') if line.strip()) 
 
 
 def get_data_from_text(text,fields):
