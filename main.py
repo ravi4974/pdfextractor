@@ -10,14 +10,16 @@ regexp={
 
 pytesseract.pytesseract.tesseract_cmd=r'C:\Users\outlo\AppData\Local\Programs\Tesseract-OCR\tesseract.exe'
 
-def get_value_or_na(pattern,index=0):
+def get_value_or_na(pattern,index=0,optional=False):
     def inner(text):
         value=re.findall(pattern, text)
         if len(value):
             if type(value[0]) is tuple:
-                return value[0][index]
+                return value[0][index].strip()
             else:
-                return value[index]
+                return value[index].strip()
+        elif optional:
+            return 'NA'
         else:
             raise ValueError(f'${pattern} not found in ${text}')
     return inner
@@ -51,8 +53,8 @@ def get_rows_from_pdf(path):
 
     fields={
         'name':get_value_or_na('To[,.;]*[\n\s]+(.+)'),
-        'phone':get_value_or_na('(Mob|Tel)[^\d]*(\d+)',1),
-        'email':get_value_or_na('Email.*?:\s*(.+)')
+        'phone':get_value_or_na('(Mob|Tel|Ph)[^\d]*(.+)',1,True),
+        'email':get_value_or_na('E[-]*mail.*?:\s*(.+)',0,True)
     }
 
     images=get_images_from_pdf(path)
