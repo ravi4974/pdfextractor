@@ -25,9 +25,9 @@ def get_value_or_na(pattern,index=0):
 def get_images_from_pdf(path, mat=fitz.Matrix(2,2)):
     with fitz.open(path) as pdf:
         for page in pdf:
-            clip=fitz.Rect(0,0,page.rect.width,page.rect.height*0.35)
+            clip=fitz.Rect(0,120,page.rect.width,page.rect.height*0.35)
             pixmap=page.get_pixmap(matrix=mat,clip=clip)
-            image=Image.frombytes('RGB',[pixmap.width,pixmap.height],pixmap.samples)
+            image=Image.frombytes('RGB',[pixmap.width,pixmap.height],pixmap.samples).convert('L')
             yield image
 
 def get_text_from_image(image):
