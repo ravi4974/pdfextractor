@@ -4,14 +4,29 @@ from PIL import Image
 import pandas as pd
 import argparse, os, re
 
-regexp={
-    '_text':'(To[,.;]*(.|\n)+?)Sub:'
-}
+subtext_regex=[
+    '(M/s(.|\n)+?E[-]*mail.*?:.+)',
+    'To[,.;]?((.|\n)+?E[-]*mail.*?:.+)',
+    'Dated:.*((.|\n)+)Sub:',
+]
 
-pytesseract.pytesseract.tesseract_cmd=r'C:\Users\outlo\AppData\Local\Programs\Tesseract-OCR\tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd=r'<path of tesseract ocr exe>'
 
 def get_value_or_na(pattern,index=0,optional=False):
     def inner(text):
+        if type(pattern) is list:
+            for p in pattern:
+                try:
+                    v=get_value_or_na(p,index,optional)(text)
+                    if not v: continue
+                    return v
+                except ValueError as e:
+                    if p==pattern[-1] and not optional:
+                        raise e
+                    else:
+                        pass
+            return None
+
         value=re.findall(pattern, text)
         if len(value):
             if type(value[0]) is tuple:
@@ -19,7 +34,7 @@ def get_value_or_na(pattern,index=0,optional=False):
             else:
                 return value[index].strip()
         elif optional:
-            return 'NA'
+            return None
         else:
             raise ValueError(f'${pattern} not found in ${text}')
     return inner
@@ -38,9 +53,13 @@ def get_text_from_image(image):
 
 
 def get_data_from_text(text,fields):
-    data={}
-    subtext=get_value_or_na(regexp['_text'])(text)
-    data=dict((field,func(subtext)) for field, func in fields.items())
+    subtext=get_value_or_na(subtext_regex,0,True)(text)
+    
+    data={'text':text}
+
+    data.update(dict((field,func(subtext or text) or 'NA') for field, func in fields.items()))
+
+    if not subtext: return data
    
     address='\n'.join([line for line in subtext.split('\n')[1:] if line and not any(line.find(v)>-1 for _,v in data.items())])
 
@@ -52,9 +71,9 @@ def get_rows_from_pdf(path):
     rows=[]
 
     fields={
-        'name':get_value_or_na('To[,.;]*[\n\s]+(.+)'),
+        'name':get_value_or_na(['(M/s.+)','To[,.;]*[\n\s]+(.+)','(.+)']),
         'phone':get_value_or_na('(Mob|Tel|Ph)[^\d]*(.+)',1,True),
-        'email':get_value_or_na('E[-]*mail.*?:\s*(.+)',0,True)
+        'email':get_value_or_na('E[-]*mail.*?:\W*(.+)',0,True)
     }
 
     images=get_images_from_pdf(path)
@@ -78,11 +97,11 @@ def main(path,output_path):
         rows+=get_rows_from_pdf(os.path.join(base,file))
     
     #save into xls
-    pd.DataFrame(rows).to_excel(output_path)
+    pd.DataFrame(rows).to_excel(output_path, index=False,columns=["name","address","phone","email","text"])
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('PDFExtractor','To extract text from pdf')
+    parser = argparse.ArgumentParser('PDFExtractor','To extract data from pdf')
     parser.add_argument('path')
     parser.add_argument('output')
 
